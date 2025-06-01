@@ -50,6 +50,20 @@ secrets.json
 .env.production
 
 # ====================
+# direnv・環境変数関連
+# ====================
+
+# direnv環境設定ファイル（機密情報含む）
+.envrc
+.envrc.*
+
+# 環境変数バックアップファイル
+.envrc.backup.*
+
+# direnvキャッシュ
+.direnv/
+
+# ====================
 # プロジェクト固有ファイル
 # ====================
 
@@ -60,6 +74,9 @@ kindle_ocr_config.txt
 # 環境テストファイル
 test_environment.py
 test_screenshot.scpt
+
+# 設定確認スクリプト
+check_config.sh
 
 # ====================
 # 出力・作業ファイル
@@ -77,6 +94,7 @@ temp/
 *.pdf
 ocr_output.*
 error_log.*
+google_doc_url.txt
 
 # 一時Pythonスクリプト
 ocr_script.py

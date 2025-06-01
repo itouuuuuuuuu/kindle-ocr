@@ -2,11 +2,13 @@
 
 ## 1. 前提条件の確認
 
+
 ### システム要件
 - **macOS** (AppleScript使用のため)
 - **Python 3.8以上**
 - **インターネット接続** (Google API使用)
 - **Google アカウント** (Google Cloud Platform使用)
+- **direnv** (環境変数管理)
 
 ```bash
 # Python バージョン確認
@@ -14,6 +16,13 @@ python3 --version
 
 # Homebrewインストール確認（未インストールの場合）
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# direnvインストール
+brew install direnv
+
+# シェル設定（zshの場合）
+echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
 ## 2. Python環境とライブラリのセットアップ
@@ -172,45 +181,92 @@ ls -la kindle-ocr-service-account.json
 
 ## 5. 設定ファイルの準備
 
-### 5.1 AppleScriptコードの設定値更新
-
-`kindle_ocr_automation.scpt`をテキストエディタで開き、以下の値を実際の値に置き換え:
-
-```python
-# Pythonスクリプト内の設定値（行番号: 約80行目付近）
-DRIVE_FOLDER_ID = 'YOUR_FOLDER_ID'  # 実際のフォルダIDに置き換え
-```
-
-**具体的な手順:**
-1. Script Editorで`kindle_ocr_automation.scpt`を開く
-2. `DRIVE_FOLDER_ID = 'YOUR_FOLDER_ID'`の行を見つける
-3. `YOUR_FOLDER_ID`を実際のGoogle DriveフォルダIDに置き換え
-4. ファイルを保存
-
-### 5.2 環境変数設定（オプション）
+### 5.1 .envrcファイルの作成
 
 ```bash
-# プロジェクトディレクトリのパスを取得
-PROJECT_DIR=$(pwd)
-PROJECT_ID=$(gcloud config get-value project)
+# プロジェクトディレクトリで.envrcファイルを作成
+cat > .envrc << 'EOF'
+#!/bin/bash
 
-# ~/.zshrc に環境変数を追加
-cat >> ~/.zshrc << EOF
+# プロジェクト基本設定
+export KINDLE_OCR_PROJECT_ROOT="$(pwd)"
+export GOOGLE_APPLICATION_CREDENTIALS="${KINDLE_OCR_PROJECT_ROOT}/kindle-ocr-service-account.json"
 
-# Kindle OCR 設定
-export GOOGLE_APPLICATION_CREDENTIALS="${PROJECT_DIR}/kindle-ocr-service-account.json"
-export GOOGLE_CLOUD_PROJECT="${PROJECT_ID}"
-export KINDLE_OCR_PROJECT_DIR="${PROJECT_DIR}"
+# Google Cloud設定（実際の値に置き換えてください）
+export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
+export KINDLE_OCR_DRIVE_FOLDER_ID="YOUR_DRIVE_FOLDER_ID"
+
+# AppleScript設定
+export KINDLE_OCR_PAGES="200"
+export KINDLE_OCR_KEY_CODE="28"
+export KINDLE_OCR_CAPTURE_RECT="50,100,1500,850"
+export KINDLE_OCR_SCREENSHOT_DELAY="0.3"
+export KINDLE_OCR_PAGE_DELAY="0.2"
+
+# Python OCR設定
+export KINDLE_OCR_DOC_NAME_PREFIX="Kindle_OCR_Output"
+export KINDLE_OCR_DOC_NAME_LENGTH="20"
+export KINDLE_OCR_ADD_TIMESTAMP="false"
+export KINDLE_OCR_CREATE_PDF="true"
+export KINDLE_OCR_PDF_NAME="kindle_output.pdf"
+export KINDLE_OCR_TEXT_NAME="ocr_output.txt"
+export KINDLE_OCR_SERVICE_ACCOUNT_FILE="kindle-ocr-service-account.json"
+
+# Python仮想環境の自動アクティベーション
+if [[ -d "${KINDLE_OCR_PROJECT_ROOT}/kindle_ocr_env" ]]; then
+    source "${KINDLE_OCR_PROJECT_ROOT}/kindle_ocr_env/bin/activate"
+fi
+
+echo "Kindle OCR環境変数が設定されました"
+echo "プロジェクトルート: ${KINDLE_OCR_PROJECT_ROOT}"
+echo "Google Cloud プロジェクト: ${GOOGLE_CLOUD_PROJECT}"
 EOF
 
-# 設定を反映
-source ~/.zshrc
+# direnvを許可
+direnv allow
 
 # 設定確認
-echo "認証情報: $GOOGLE_APPLICATION_CREDENTIALS"
-echo "プロジェクトID: $GOOGLE_CLOUD_PROJECT"
-echo "プロジェクトディレクトリ: $KINDLE_OCR_PROJECT_DIR"
+direnv status
 ```
+
+### 5.2 環境変数の設定
+
+```bash
+# 実際の値を設定（以下の値を実際の値に置き換え）
+PROJECT_ID=$(gcloud config get-value project)
+DRIVE_FOLDER_ID="YOUR_ACTUAL_DRIVE_FOLDER_ID"  # 実際のフォルダIDに置き換え
+
+# .envrcファイルを更新
+sed -i '' "s/YOUR_PROJECT_ID/${PROJECT_ID}/g" .envrc
+sed -i '' "s/YOUR_DRIVE_FOLDER_ID/${DRIVE_FOLDER_ID}/g" .envrc
+
+# 設定を再読み込み
+direnv reload
+
+# 環境変数確認
+echo "プロジェクトID: $GOOGLE_CLOUD_PROJECT"
+echo "認証ファイル: $GOOGLE_APPLICATION_CREDENTIALS"
+echo "DriveフォルダID: $KINDLE_OCR_DRIVE_FOLDER_ID"
+```
+
+### 5.3 環境変数一覧
+
+| 環境変数名 | 説明 | デフォルト値 | 必須 |
+|-----------|------|-------------|------|
+| `GOOGLE_CLOUD_PROJECT` | Google CloudプロジェクトID | - | ✅ |
+| `KINDLE_OCR_DRIVE_FOLDER_ID` | Google DriveフォルダID | - | ✅ |
+| `GOOGLE_APPLICATION_CREDENTIALS` | 認証ファイルパス | `./kindle-ocr-service-account.json` | ✅ |
+| `KINDLE_OCR_PAGES` | スクリーンショット数 | `200` | - |
+| `KINDLE_OCR_KEY_CODE` | ページめくりキーコード | `28` (左矢印) | - |
+| `KINDLE_OCR_CAPTURE_RECT` | キャプチャ範囲 | `50,100,1500,850` | - |
+| `KINDLE_OCR_SCREENSHOT_DELAY` | スクリーンショット間隔(秒) | `0.3` | - |
+| `KINDLE_OCR_PAGE_DELAY` | ページめくり間隔(秒) | `0.2` | - |
+| `KINDLE_OCR_DOC_NAME_PREFIX` | ドキュメント名プレフィックス | `Kindle_OCR_Output` | - |
+| `KINDLE_OCR_DOC_NAME_LENGTH` | ドキュメント名文字数 | `20` | - |
+| `KINDLE_OCR_ADD_TIMESTAMP` | タイムスタンプ追加 | `false` | - |
+| `KINDLE_OCR_CREATE_PDF` | PDF作成 | `true` | - |
+| `KINDLE_OCR_PDF_NAME` | PDFファイル名 | `kindle_output.pdf` | - |
+| `KINDLE_OCR_TEXT_NAME` | テキストファイル名 | `ocr_output.txt` | - |
 
 ## 6. 権限とセキュリティ設定
 
@@ -242,9 +298,6 @@ open "macappstore://apps.apple.com/app/kindle/id405399194"
 ### 7.1 環境確認スクリプト
 
 ```bash
-# プロジェクトディレクトリで実行
-cd /path/to/your/kindle-ocr-project  # kindle_ocr_automation.scptがあるディレクトリ
-
 # 環境確認スクリプトを作成
 cat > test_environment.py << 'EOF'
 #!/usr/bin/env python3
@@ -254,44 +307,64 @@ from pathlib import Path
 
 def test_environment():
     print("=== Kindle OCR 環境テスト ===")
-    
-    # 1. プロジェクトディレクトリ確認
-    project_dir = Path.cwd()
-    print(f"プロジェクトディレクトリ: {project_dir}")
-    
-    # 2. 認証ファイル存在確認
-    credentials_path = project_dir / 'kindle-ocr-service-account.json'
+
+    # 1. 必須環境変数確認
+    required_vars = [
+        'GOOGLE_CLOUD_PROJECT',
+        'KINDLE_OCR_DRIVE_FOLDER_ID',
+        'GOOGLE_APPLICATION_CREDENTIALS'
+    ]
+
+    for var in required_vars:
+        value = os.environ.get(var)
+        if value:
+            print(f"✅ {var}: {value}")
+        else:
+            print(f"❌ {var}: 未設定")
+            return False
+
+    # 2. オプション環境変数確認
+    optional_vars = [
+        'KINDLE_OCR_PAGES',
+        'KINDLE_OCR_CAPTURE_RECT',
+        'KINDLE_OCR_DOC_NAME_PREFIX'
+    ]
+
+    print("\n--- オプション設定 ---")
+    for var in optional_vars:
+        value = os.environ.get(var, 'デフォルト値使用')
+        print(f"📋 {var}: {value}")
+
+    # 3. 認証ファイル存在確認
+    credentials_path = Path(os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
     if credentials_path.exists():
-        print("✅ 認証ファイル: 存在")
-        print(f"   パス: {credentials_path}")
+        print(f"✅ 認証ファイル: 存在 ({credentials_path})")
     else:
-        print("❌ 認証ファイル: 見つからない")
-        print(f"   期待パス: {credentials_path}")
+        print(f"❌ 認証ファイル: 見つからない ({credentials_path})")
         return False
-    
-    # 3. AppleScriptファイル確認
-    script_path = project_dir / 'kindle_ocr_automation.scpt'
+
+    # 4. AppleScriptファイル確認
+    script_path = Path.cwd() / 'kindle_ocr_automation.scpt'
     if script_path.exists():
         print("✅ AppleScriptファイル: 存在")
     else:
         print("❌ AppleScriptファイル: 見つからない")
         return False
-    
-    # 4. Google Cloud Vision API テスト
+
+    # 5. Google Cloud Vision API テスト
     try:
-        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = str(credentials_path)
         from google.cloud import vision_v1
         client = vision_v1.ImageAnnotatorClient()
         print("✅ Vision API: 接続成功")
     except Exception as e:
         print(f"❌ Vision API: エラー - {e}")
         return False
-    
-    # 5. Google Drive API テスト
+
+    # 6. Google Drive API テスト
     try:
         from googleapiclient.discovery import build
         from google.oauth2 import service_account
-        
+
         credentials = service_account.Credentials.from_service_account_file(
             str(credentials_path),
             scopes=['https://www.googleapis.com/auth/drive.file']
@@ -301,8 +374,8 @@ def test_environment():
     except Exception as e:
         print(f"❌ Drive API: エラー - {e}")
         return False
-    
-    # 6. img2pdf確認
+
+    # 7. img2pdf確認
     import subprocess
     try:
         result = subprocess.run(['img2pdf', '--version'], capture_output=True, text=True)
@@ -310,8 +383,8 @@ def test_environment():
     except FileNotFoundError:
         print("❌ img2pdf: 見つからない")
         return False
-    
-    print("🎉 すべてのテストが成功しました！")
+
+    print("\n🎉 すべてのテストが成功しました！")
     return True
 
 if __name__ == "__main__":
@@ -346,35 +419,30 @@ osascript test_screenshot.scpt
 ls -la
 
 # 期待される構成:
+# ├── .envrc                           # 環境変数設定（新規）
 # ├── .gitignore
 # ├── README.md
 # ├── kindle_ocr_automation.scpt
-# ├── kindle-ocr-service-account.json  # 新規作成
+# ├── kindle-ocr-service-account.json  # 認証ファイル
 # ├── kindle_ocr_env/                  # 仮想環境
-# └── project_id.txt                   # プロジェクトID記録
+# └── test_environment.py              # テストスクリプト
 ```
 
-### 設定情報の確認
+### 環境変数確認
 
 ```bash
-# 重要な設定情報を表示
-echo "=== Kindle OCR プロジェクト設定情報 ==="
-echo "プロジェクトディレクトリ: $(pwd)"
-echo "プロジェクトID: $(gcloud config get-value project)"
-echo "サービスアカウント: kindle-ocr-service@$(gcloud config get-value project).iam.gserviceaccount.com"
-echo "認証キーファイル: $(pwd)/kindle-ocr-service-account.json"
-echo "========================================"
+# direnv環境確認
+direnv status
 
-# 設定をファイルに保存
-cat > kindle_ocr_config.txt << EOF
-プロジェクトディレクトリ: $(pwd)
-プロジェクトID: $(gcloud config get-value project)
-サービスアカウント: kindle-ocr-service@$(gcloud config get-value project).iam.gserviceaccount.com
-認証キーファイル: $(pwd)/kindle-ocr-service-account.json
-作成日: $(date)
-EOF
-
-echo "設定情報をkindle_ocr_config.txtに保存しました"
+# 重要な環境変数確認
+echo "=== 環境変数確認 ==="
+echo "プロジェクトルート: $KINDLE_OCR_PROJECT_ROOT"
+echo "プロジェクトID: $GOOGLE_CLOUD_PROJECT"
+echo "認証ファイル: $GOOGLE_APPLICATION_CREDENTIALS"
+echo "DriveフォルダID: $KINDLE_OCR_DRIVE_FOLDER_ID"
+echo "スクリーンショット数: $KINDLE_OCR_PAGES"
+echo "キャプチャ範囲: $KINDLE_OCR_CAPTURE_RECT"
+echo "====================="
 ```
 
 ## 9. トラブルシューティング
@@ -496,9 +564,15 @@ gcloud logging read "resource.type=api" --limit=10 --project=$(gcloud config get
 
 ### スクリプトの実行
 ```bash
-# 1. Kindleアプリで読みたい本を開く
-# 2. 読み始めたいページを表示
-# 3. AppleScriptを実行
+# 1. プロジェクトディレクトリに移動（direnvが自動で環境変数を設定）
+cd /path/to/your/kindle-ocr-project
+
+# 2. 環境変数が設定されていることを確認
+echo "DriveフォルダID: $KINDLE_OCR_DRIVE_FOLDER_ID"
+
+# 3. Kindleアプリで読みたい本を開く
+# 4. 読み始めたいページを表示
+# 5. AppleScriptを実行
 
 # Script Editorから実行
 open kindle_ocr_automation.scpt
@@ -508,37 +582,191 @@ osascript kindle_ocr_automation.scpt
 ```
 
 ### 実行前のチェックリスト
+- [ ] プロジェクトディレクトリにいる（`direnv status`で確認）
+- [ ] 環境変数が設定されている（`echo $KINDLE_OCR_DRIVE_FOLDER_ID`で確認）
 - [ ] Kindleアプリが起動している
 - [ ] 読み取りたい本が開かれている
 - [ ] 開始ページが表示されている
 - [ ] Google Driveフォルダが共有設定されている
-- [ ] 仮想環境がアクティブになっている（`source kindle_ocr_env/bin/activate`）
-
-### 実行後の確認
-- デスクトップに一時フォルダ `Kindle_Screenshots_YYYYMMDD_HHMMSS` が作成される
-- Google Driveの指定フォルダにドキュメントがアップロードされる
-- 処理完了後、一時ファイルは自動削除される
 
 ## 12. カスタマイズ
 
 ### 設定のカスタマイズ
-AppleScript内の設定値を変更可能：
+`.envrc`ファイルを編集して設定をカスタマイズ：
 
-```applescript
--- 設定値（kindle_ocr_automation.scpt の上部）
-property PAGES : 200                    -- スクリーンショット数
-property CAPTURE_RECT : "50,100,1500,850"  -- キャプチャ範囲
-property SCREENSHOT_DELAY : 0.3         -- スクリーンショット間隔
-property PAGE_DELAY : 0.2               -- ページめくり間隔
+```bash
+# .envrcファイルを編集
+nano .envrc
+
+# 主要な設定項目:
+# export KINDLE_OCR_PAGES="200"                    # スクリーンショット数
+# export KINDLE_OCR_CAPTURE_RECT="50,100,1500,850" # キャプチャ範囲
+# export KINDLE_OCR_SCREENSHOT_DELAY="0.3"         # スクリーンショット間隔
+# export KINDLE_OCR_PAGE_DELAY="0.2"               # ページめくり間隔
+
+# 設定変更後は再読み込み
+direnv reload
+```
+
+### よく使用するカスタマイズ例
+
+#### 1. 高速処理設定
+```bash
+# .envrcに追加
+export KINDLE_OCR_PAGES="50"                # 少ないページ数でテスト
+export KINDLE_OCR_SCREENSHOT_DELAY="0.1"    # 高速スクリーンショット
+export KINDLE_OCR_PAGE_DELAY="0.1"          # 高速ページめくり
+export KINDLE_OCR_CREATE_PDF="false"        # PDF作成をスキップ
+```
+
+#### 2. 高品質処理設定
+```bash
+# .envrcに追加
+export KINDLE_OCR_SCREENSHOT_DELAY="0.5"    # 安定したスクリーンショット
+export KINDLE_OCR_PAGE_DELAY="0.3"          # 安定したページめくり
+export KINDLE_OCR_ADD_TIMESTAMP="true"      # タイムスタンプ付きファイル名
+```
+
+#### 3. カスタムキャプチャ範囲
+```bash
+# 異なる画面サイズ・解像度に対応
+export KINDLE_OCR_CAPTURE_RECT="100,150,1400,800"  # 大きめの範囲
+export KINDLE_OCR_CAPTURE_RECT="30,80,1200,700"    # 小さめの範囲
+```
+
+#### 4. 右から左読み設定（漫画など）
+```bash
+# .envrcに追加
+export KINDLE_OCR_KEY_CODE="29"  # 右矢印キー（通常は28=左矢印）
+```
+
+### 環境別設定の管理
+
+#### 開発環境用設定
+```bash
+# .envrc.development として保存
+cp .envrc .envrc.development
+
+# 開発用設定を編集
+cat >> .envrc.development << 'EOF'
+# 開発環境用設定
+export KINDLE_OCR_PAGES="10"
+export KINDLE_OCR_DOC_NAME_PREFIX="TEST_Kindle_OCR"
+export KINDLE_OCR_CREATE_PDF="false"
+EOF
+
+# 開発環境使用時
+cp .envrc.development .envrc
+direnv reload
+```
+
+#### 本番環境用設定
+```bash
+# .envrc.production として保存
+cp .envrc .envrc.production
+
+# 本番用設定を編集
+cat >> .envrc.production << 'EOF'
+# 本番環境用設定
+export KINDLE_OCR_PAGES="500"
+export KINDLE_OCR_ADD_TIMESTAMP="true"
+export KINDLE_OCR_CREATE_PDF="true"
+EOF
+
+# 本番環境使用時
+cp .envrc.production .envrc
+direnv reload
 ```
 
 ### 使用量とコスト管理
+
+#### APIコスト監視
 ```bash
 # Google Cloud Vision APIの使用量確認
 gcloud logging read "resource.type=api AND protoPayload.serviceName=vision.googleapis.com" \
-    --limit=50 --project=$(gcloud config get-value project)
+    --limit=50 --project=$GOOGLE_CLOUD_PROJECT --format="table(timestamp,protoPayload.methodName)"
 
 # 課金情報の確認
-gcloud billing budgets list --billing-account=BILLING_ACCOUNT_ID
+gcloud billing budgets list --billing-account=$(gcloud billing accounts list --format="value(name)" --limit=1)
 ```
 
+#### コスト削減設定
+```bash
+# .envrcに追加（コスト重視）
+export KINDLE_OCR_PAGES="100"               # ページ数制限
+export KINDLE_OCR_CREATE_PDF="false"        # PDF作成無効
+export KINDLE_OCR_DOC_NAME_LENGTH="10"      # 短いファイル名
+```
+
+### トラブルシューティング用設定
+
+#### デバッグモード
+```bash
+# .envrcに追加
+export KINDLE_OCR_DEBUG="true"
+export KINDLE_OCR_VERBOSE="true"
+export KINDLE_OCR_KEEP_TEMP_FILES="true"    # 一時ファイルを保持
+```
+
+#### テスト用最小設定
+```bash
+# .envrc.test として保存
+cat > .envrc.test << 'EOF'
+#!/bin/bash
+export KINDLE_OCR_PROJECT_ROOT="$(pwd)"
+export GOOGLE_APPLICATION_CREDENTIALS="${KINDLE_OCR_PROJECT_ROOT}/kindle-ocr-service-account.json"
+export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
+export KINDLE_OCR_DRIVE_FOLDER_ID="YOUR_DRIVE_FOLDER_ID"
+export KINDLE_OCR_PAGES="3"
+export KINDLE_OCR_CREATE_PDF="false"
+export KINDLE_OCR_DOC_NAME_PREFIX="TEST"
+EOF
+
+# テスト実行時
+cp .envrc.test .envrc
+direnv reload
+```
+
+### 設定の検証
+
+#### 設定値確認スクリプト
+```bash
+# 設定確認用スクリプト作成
+cat > check_config.sh << 'EOF'
+#!/bin/bash
+echo "=== Kindle OCR 設定確認 ==="
+echo "プロジェクトルート: $KINDLE_OCR_PROJECT_ROOT"
+echo "プロジェクトID: $GOOGLE_CLOUD_PROJECT"
+echo "DriveフォルダID: $KINDLE_OCR_DRIVE_FOLDER_ID"
+echo "スクリーンショット数: $KINDLE_OCR_PAGES"
+echo "キャプチャ範囲: $KINDLE_OCR_CAPTURE_RECT"
+echo "スクリーンショット間隔: $KINDLE_OCR_SCREENSHOT_DELAY秒"
+echo "ページめくり間隔: $KINDLE_OCR_PAGE_DELAY秒"
+echo "PDF作成: $KINDLE_OCR_CREATE_PDF"
+echo "タイムスタンプ追加: $KINDLE_OCR_ADD_TIMESTAMP"
+echo "=========================="
+EOF
+
+chmod +x check_config.sh
+./check_config.sh
+```
+
+### 設定のバックアップと復元
+
+#### 設定バックアップ
+```bash
+# 現在の設定をバックアップ
+cp .envrc .envrc.backup.$(date +%Y%m%d_%H%M%S)
+
+# バックアップ一覧確認
+ls -la .envrc.backup.*
+```
+
+#### 設定復元
+```bash
+# 最新のバックアップから復元
+latest_backup=$(ls -t .envrc.backup.* | head -1)
+cp "$latest_backup" .envrc
+direnv reload
+echo "設定を復元しました: $latest_backup"
+```
