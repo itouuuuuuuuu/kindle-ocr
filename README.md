@@ -1,7 +1,33 @@
 # Kindle OCRスクリプト実行環境構築ガイド
 
-## 1. 前提条件の確認
+このKindle OCRスクリプトは、**Kindleアプリの画面を自動でスクリーンショット撮影し、OCR（光学文字認識）でテキスト化してGoogle Docsにアップロードする自動化システム**です。
 
+## 最終的に生成される成果物
+
+### 1. **Google Docsドキュメント** 📄
+- **場所**: 指定したGoogle Driveフォルダ内
+- **内容**: OCRで抽出されたテキスト全文
+- **ファイル名**: 抽出テキストの最初の20文字（設定可能）+ オプションでタイムスタンプ
+- **形式**: 編集可能なGoogle Docsドキュメント
+
+### 2. **PDFファイル** 📖
+- **場所**: デスクトップの一時フォルダ
+- **内容**: 全スクリーンショットを結合したPDF
+- **ファイル名**: `kindle_output.pdf`（設定可能）
+- **用途**: 元画像の保存・アーカイブ
+
+### 3. **テキストファイル** 📝
+- **場所**: デスクトップの一時フォルダ
+- **内容**: OCRで抽出された生テキスト
+- **ファイル名**: `ocr_output.txt`（設定可能）
+- **エンコーディング**: UTF-8
+
+### 4. **Google Docs URL** 🔗
+- **場所**: `google_doc_url.txt`ファイル
+- **内容**: 作成されたGoogle DocsのURL
+- **用途**: 直接アクセス用
+
+## 1. 前提条件の確認
 
 ### システム要件
 - **macOS** (AppleScript使用のため)
@@ -198,7 +224,7 @@ export KINDLE_OCR_DRIVE_FOLDER_ID="YOUR_DRIVE_FOLDER_ID"
 
 # AppleScript設定
 export KINDLE_OCR_PAGES="200"
-export KINDLE_OCR_KEY_CODE="28"
+export KINDLE_OCR_KEY_CODE="32"
 export KINDLE_OCR_CAPTURE_RECT="50,100,1500,850"
 export KINDLE_OCR_SCREENSHOT_DELAY="0.3"
 export KINDLE_OCR_PAGE_DELAY="0.2"
