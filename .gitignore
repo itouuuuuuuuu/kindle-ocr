@@ -1,0 +1,143 @@
+# ====================
+# Python関連
+# ====================
+
+# 仮想環境
+kindle_ocr_env/
+venv/
+env/
+ENV/
+.venv/
+
+# Python実行時ファイル
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ====================
+# 認証・機密情報
+# ====================
+
+# Google Cloud認証情報
+*service-account*.json
+*credentials*.json
+*.pem
+*.p12
+
+# 設定ファイル（機密情報含む）
+config.json
+secrets.json
+.env
+.env.local
+.env.production
+
+# ====================
+# 出力・作業ファイル
+# ====================
+
+# スクリーンショット出力フォルダ
+Kindle_Screenshots_*/
+screenshots/
+output/
+temp/
+
+# OCR出力ファイル
+*.txt
+*.md
+*.pdf
+ocr_output.*
+error_log.*
+
+# 一時Pythonスクリプト
+ocr_script.py
+temp_*.py
+
+# ====================
+# macOS関連
+# ====================
+
+# システムファイル
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Finder情報
+.fseventsd
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# ====================
+# エディタ・IDE関連
+# ====================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ====================
+# ログファイル
+# ====================
+
+# ログファイル
+*.log
+logs/
+log/
+
+# ====================
+# その他
+# ====================
+
+# バックアップファイル
+*.bak
+*.backup
+*.orig
+
+# 圧縮ファイル
+*.zip
+*.tar.gz
+*.rar
+
+# テストファイル
+test_*
+*_test.*
