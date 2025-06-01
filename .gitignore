@@ -50,6 +50,18 @@ secrets.json
 .env.production
 
 # ====================
+# プロジェクト固有ファイル
+# ====================
+
+# プロジェクト設定・記録ファイル
+project_id.txt
+kindle_ocr_config.txt
+
+# 環境テストファイル
+test_environment.py
+test_screenshot.scpt
+
+# ====================
 # 出力・作業ファイル
 # ====================
 

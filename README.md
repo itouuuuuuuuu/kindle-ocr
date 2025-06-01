@@ -21,6 +21,9 @@ python3 --version
 ### 必要ライブラリのインストール
 
 ```bash
+# プロジェクトディレクトリに移動
+cd /path/to/your/kindle-ocr-project  # kindle_ocr_automation.scptがあるディレクトリ
+
 # 仮想環境作成（推奨）
 python3 -m venv kindle_ocr_env
 source kindle_ocr_env/bin/activate
@@ -119,7 +122,7 @@ gcloud services enable docs.googleapis.com
 gcloud services list --enabled --filter="name:(vision OR drive OR docs)"
 ```
 
-### 3.5 サービスアカウント作成
+### 3.5 サービスアカウント作成とキーファイル配置
 
 ```bash
 # 現在のプロジェクトIDを取得
@@ -130,16 +133,20 @@ gcloud iam service-accounts create kindle-ocr-service \
     --display-name="Kindle OCR Service Account" \
     --description="Service account for Kindle OCR automation"
 
-# サービスアカウントキー生成
-gcloud iam service-accounts keys create ~/kindle-ocr-service-account.json \
+# プロジェクトディレクトリに移動（重要）
+cd /path/to/your/kindle-ocr-project  # kindle_ocr_automation.scptがあるディレクトリ
+
+# サービスアカウントキーをプロジェクトディレクトリに生成
+gcloud iam service-accounts keys create ./kindle-ocr-service-account.json \
     --iam-account=kindle-ocr-service@${PROJECT_ID}.iam.gserviceaccount.com
 
 # キーファイルの権限設定
-chmod 600 ~/kindle-ocr-service-account.json
+chmod 600 ./kindle-ocr-service-account.json
 
 # 作成確認
 echo "サービスアカウント: kindle-ocr-service@${PROJECT_ID}.iam.gserviceaccount.com"
-echo "キーファイル: ~/kindle-ocr-service-account.json"
+echo "キーファイル: $(pwd)/kindle-ocr-service-account.json"
+ls -la kindle-ocr-service-account.json
 ```
 
 ## 4. Google Drive設定
@@ -167,28 +174,33 @@ echo "キーファイル: ~/kindle-ocr-service-account.json"
 
 ### 5.1 AppleScriptコードの設定値更新
 
-`kindle_ocr_automation.scpt`内の以下の値を実際の値に置き換え:
+`kindle_ocr_automation.scpt`をテキストエディタで開き、以下の値を実際の値に置き換え:
 
 ```python
-# Pythonスクリプト内の設定値（実際のパスに置き換え）
-SERVICE_ACCOUNT_FILE = '/Users/YOUR_USERNAME/kindle-ocr-service-account.json'
-DRIVE_FOLDER_ID = '1ABC123DEF456GHI789'  # 実際のフォルダID
+# Pythonスクリプト内の設定値（行番号: 約80行目付近）
+DRIVE_FOLDER_ID = 'YOUR_FOLDER_ID'  # 実際のフォルダIDに置き換え
 ```
 
-### 5.2 環境変数設定
+**具体的な手順:**
+1. Script Editorで`kindle_ocr_automation.scpt`を開く
+2. `DRIVE_FOLDER_ID = 'YOUR_FOLDER_ID'`の行を見つける
+3. `YOUR_FOLDER_ID`を実際のGoogle DriveフォルダIDに置き換え
+4. ファイルを保存
+
+### 5.2 環境変数設定（オプション）
 
 ```bash
-# 現在のユーザー名とプロジェクトIDを取得
-USERNAME=$(whoami)
+# プロジェクトディレクトリのパスを取得
+PROJECT_DIR=$(pwd)
 PROJECT_ID=$(gcloud config get-value project)
 
 # ~/.zshrc に環境変数を追加
 cat >> ~/.zshrc << EOF
 
 # Kindle OCR 設定
-export GOOGLE_APPLICATION_CREDENTIALS="/Users/${USERNAME}/kindle-ocr-service-account.json"
+export GOOGLE_APPLICATION_CREDENTIALS="${PROJECT_DIR}/kindle-ocr-service-account.json"
 export GOOGLE_CLOUD_PROJECT="${PROJECT_ID}"
-export KINDLE_OCR_FOLDER_ID="YOUR_DRIVE_FOLDER_ID"  # 実際のフォルダIDに置き換え
+export KINDLE_OCR_PROJECT_DIR="${PROJECT_DIR}"
 EOF
 
 # 設定を反映
@@ -197,6 +209,7 @@ source ~/.zshrc
 # 設定確認
 echo "認証情報: $GOOGLE_APPLICATION_CREDENTIALS"
 echo "プロジェクトID: $GOOGLE_CLOUD_PROJECT"
+echo "プロジェクトディレクトリ: $KINDLE_OCR_PROJECT_DIR"
 ```
 
 ## 6. 権限とセキュリティ設定
@@ -229,31 +242,44 @@ open "macappstore://apps.apple.com/app/kindle/id405399194"
 ### 7.1 環境確認スクリプト
 
 ```bash
+# プロジェクトディレクトリで実行
+cd /path/to/your/kindle-ocr-project  # kindle_ocr_automation.scptがあるディレクトリ
+
 # 環境確認スクリプトを作成
 cat > test_environment.py << 'EOF'
 #!/usr/bin/env python3
 import os
 import sys
+from pathlib import Path
 
 def test_environment():
     print("=== Kindle OCR 環境テスト ===")
     
-    # 1. 環境変数確認
-    credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-    project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
-    
-    print(f"認証情報パス: {credentials_path}")
-    print(f"プロジェクトID: {project_id}")
+    # 1. プロジェクトディレクトリ確認
+    project_dir = Path.cwd()
+    print(f"プロジェクトディレクトリ: {project_dir}")
     
     # 2. 認証ファイル存在確認
-    if credentials_path and os.path.exists(credentials_path):
+    credentials_path = project_dir / 'kindle-ocr-service-account.json'
+    if credentials_path.exists():
         print("✅ 認証ファイル: 存在")
+        print(f"   パス: {credentials_path}")
     else:
         print("❌ 認証ファイル: 見つからない")
+        print(f"   期待パス: {credentials_path}")
         return False
     
-    # 3. Google Cloud Vision API テスト
+    # 3. AppleScriptファイル確認
+    script_path = project_dir / 'kindle_ocr_automation.scpt'
+    if script_path.exists():
+        print("✅ AppleScriptファイル: 存在")
+    else:
+        print("❌ AppleScriptファイル: 見つからない")
+        return False
+    
+    # 4. Google Cloud Vision API テスト
     try:
+        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = str(credentials_path)
         from google.cloud import vision_v1
         client = vision_v1.ImageAnnotatorClient()
         print("✅ Vision API: 接続成功")
@@ -261,13 +287,13 @@ def test_environment():
         print(f"❌ Vision API: エラー - {e}")
         return False
     
-    # 4. Google Drive API テスト
+    # 5. Google Drive API テスト
     try:
         from googleapiclient.discovery import build
         from google.oauth2 import service_account
         
         credentials = service_account.Credentials.from_service_account_file(
-            credentials_path,
+            str(credentials_path),
             scopes=['https://www.googleapis.com/auth/drive.file']
         )
         service = build('drive', 'v3', credentials=credentials)
@@ -276,7 +302,7 @@ def test_environment():
         print(f"❌ Drive API: エラー - {e}")
         return False
     
-    # 5. img2pdf確認
+    # 6. img2pdf確認
     import subprocess
     try:
         result = subprocess.run(['img2pdf', '--version'], capture_output=True, text=True)
@@ -313,23 +339,38 @@ osascript test_screenshot.scpt
 
 ## 8. 最終確認
 
+### ファイル構成の確認
+
+```bash
+# プロジェクトディレクトリの構成確認
+ls -la
+
+# 期待される構成:
+# ├── .gitignore
+# ├── README.md
+# ├── kindle_ocr_automation.scpt
+# ├── kindle-ocr-service-account.json  # 新規作成
+# ├── kindle_ocr_env/                  # 仮想環境
+# └── project_id.txt                   # プロジェクトID記録
+```
+
 ### 設定情報の確認
 
 ```bash
 # 重要な設定情報を表示
 echo "=== Kindle OCR プロジェクト設定情報 ==="
+echo "プロジェクトディレクトリ: $(pwd)"
 echo "プロジェクトID: $(gcloud config get-value project)"
 echo "サービスアカウント: kindle-ocr-service@$(gcloud config get-value project).iam.gserviceaccount.com"
-echo "認証キーファイル: ~/kindle-ocr-service-account.json"
-echo "環境変数GOOGLE_APPLICATION_CREDENTIALS: $GOOGLE_APPLICATION_CREDENTIALS"
-echo "環境変数GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT"
+echo "認証キーファイル: $(pwd)/kindle-ocr-service-account.json"
 echo "========================================"
 
 # 設定をファイルに保存
 cat > kindle_ocr_config.txt << EOF
+プロジェクトディレクトリ: $(pwd)
 プロジェクトID: $(gcloud config get-value project)
 サービスアカウント: kindle-ocr-service@$(gcloud config get-value project).iam.gserviceaccount.com
-認証キーファイル: ~/kindle-ocr-service-account.json
+認証キーファイル: $(pwd)/kindle-ocr-service-account.json
 作成日: $(date)
 EOF
 
@@ -340,7 +381,18 @@ echo "設定情報をkindle_ocr_config.txtに保存しました"
 
 ### よくある問題と解決方法
 
-**1. プロジェクトIDエラー**
+**1. 認証ファイルが見つからない**
+```bash
+# 認証ファイルの確認
+ls -la kindle-ocr-service-account.json
+
+# 再作成が必要な場合
+PROJECT_ID=$(gcloud config get-value project)
+gcloud iam service-accounts keys create ./kindle-ocr-service-account.json \
+    --iam-account=kindle-ocr-service@${PROJECT_ID}.iam.gserviceaccount.com
+```
+
+**2. プロジェクトIDエラー**
 ```bash
 # プロジェクトIDの確認
 gcloud projects list
@@ -350,7 +402,7 @@ gcloud config get-value project
 gcloud config set project YOUR_ACTUAL_PROJECT_ID
 ```
 
-**2. 課金設定エラー**
+**3. 課金設定エラー**
 ```bash
 # 課金設定の確認
 gcloud billing projects describe $(gcloud config get-value project)
@@ -359,7 +411,7 @@ gcloud billing projects describe $(gcloud config get-value project)
 gcloud billing projects link $(gcloud config get-value project) --billing-account=BILLING_ACCOUNT_ID
 ```
 
-**3. API有効化エラー**
+**4. API有効化エラー**
 ```bash
 # APIの状態確認
 gcloud services list --available --filter="name:(vision OR drive OR docs)"
@@ -367,9 +419,11 @@ gcloud services list --enabled --filter="name:(vision OR drive OR docs)"
 
 # APIの再有効化
 gcloud services enable vision.googleapis.com --project=$(gcloud config get-value project)
+gcloud services enable drive.googleapis.com --project=$(gcloud config get-value project)
+gcloud services enable docs.googleapis.com --project=$(gcloud config get-value project)
 ```
 
-**4. 権限エラー**
+**5. 権限エラー**
 ```bash
 # サービスアカウントの権限確認
 gcloud projects get-iam-policy $(gcloud config get-value project)
@@ -380,16 +434,48 @@ gcloud projects add-iam-policy-binding $(gcloud config get-value project) \
     --role="roles/editor"
 ```
 
+**6. Python仮想環境の問題**
+```bash
+# 仮想環境の再作成
+deactivate  # 現在の仮想環境を終了
+rm -rf kindle_ocr_env
+python3 -m venv kindle_ocr_env
+source kindle_ocr_env/bin/activate
+pip install --upgrade pip
+pip install google-cloud-vision google-api-python-client google-auth google-auth-oauthlib google-auth-httplib2 img2pdf
+```
+
+**7. macOS権限の問題**
+```bash
+# Script Editorの権限確認
+# システム設定 → プライバシーとセキュリティ → プライバシー → 画面収録
+# システム設定 → プライバシーとセキュリティ → プライバシー → アクセシビリティ
+
+# 権限をリセットする場合
+sudo tccutil reset ScreenCapture
+sudo tccutil reset Accessibility
+```
+
+**8. Google Drive フォルダIDの確認**
+```bash
+# フォルダIDが正しく設定されているか確認
+# Google DriveのフォルダURLから取得:
+# https://drive.google.com/drive/folders/1ABC123DEF456GHI789
+# フォルダID: 1ABC123DEF456GHI789
+
+# AppleScriptファイル内の設定確認
+grep "DRIVE_FOLDER_ID" kindle_ocr_automation.scpt
+```
+
 ## 10. セキュリティ考慮事項
 
 ### 認証情報の保護
 ```bash
 # サービスアカウントキーの権限設定
-chmod 600 ~/kindle-ocr-service-account.json
+chmod 600 ./kindle-ocr-service-account.json
 
-# .gitignoreに認証情報を追加（既に設定済み）
-echo "*.json" >> .gitignore
-echo ".env*" >> .gitignore
+# .gitignoreで認証情報を除外（既に設定済み）
+grep "kindle-ocr-service-account.json" .gitignore
 ```
 
 ### 定期的なメンテナンス
@@ -401,4 +487,58 @@ gcloud iam service-accounts keys list \
 # 古いキーの削除（90日後など）
 # gcloud iam service-accounts keys delete KEY_ID \
 #     --iam-account=kindle-ocr-service@$(gcloud config get-value project).iam.gserviceaccount.com
+
+# プロジェクトの使用量確認
+gcloud logging read "resource.type=api" --limit=10 --project=$(gcloud config get-value project)
 ```
+
+## 11. 実行方法
+
+### スクリプトの実行
+```bash
+# 1. Kindleアプリで読みたい本を開く
+# 2. 読み始めたいページを表示
+# 3. AppleScriptを実行
+
+# Script Editorから実行
+open kindle_ocr_automation.scpt
+
+# コマンドラインから実行
+osascript kindle_ocr_automation.scpt
+```
+
+### 実行前のチェックリスト
+- [ ] Kindleアプリが起動している
+- [ ] 読み取りたい本が開かれている
+- [ ] 開始ページが表示されている
+- [ ] Google Driveフォルダが共有設定されている
+- [ ] 仮想環境がアクティブになっている（`source kindle_ocr_env/bin/activate`）
+
+### 実行後の確認
+- デスクトップに一時フォルダ `Kindle_Screenshots_YYYYMMDD_HHMMSS` が作成される
+- Google Driveの指定フォルダにドキュメントがアップロードされる
+- 処理完了後、一時ファイルは自動削除される
+
+## 12. カスタマイズ
+
+### 設定のカスタマイズ
+AppleScript内の設定値を変更可能：
+
+```applescript
+-- 設定値（kindle_ocr_automation.scpt の上部）
+property PAGES : 200                    -- スクリーンショット数
+property CAPTURE_RECT : "50,100,1500,850"  -- キャプチャ範囲
+property SCREENSHOT_DELAY : 0.3         -- スクリーンショット間隔
+property PAGE_DELAY : 0.2               -- ページめくり間隔
+```
+
+### 使用量とコスト管理
+```bash
+# Google Cloud Vision APIの使用量確認
+gcloud logging read "resource.type=api AND protoPayload.serviceName=vision.googleapis.com" \
+    --limit=50 --project=$(gcloud config get-value project)
+
+# 課金情報の確認
+gcloud billing budgets list --billing-account=BILLING_ACCOUNT_ID
+```
+
