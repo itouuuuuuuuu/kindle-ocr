@@ -83,8 +83,10 @@ check_config.sh
 # ====================
 
 # スクリーンショット出力フォルダ
-Kindle_Screenshots_*/
-screenshots/
+**/Kindle_Screenshots_*/
+**/screenshots/
+screenshot_*.png
+kindle_*.png
 output/
 temp/
 
@@ -95,6 +97,19 @@ temp/
 ocr_output.*
 error_log.*
 google_doc_url.txt
+
+# Google Docs URL記録
+google_doc_url.txt
+*_doc_url.txt
+
+# AppleScript一時ファイル
+*_script.py
+temp_ocr_*.py
+recovery_script.py
+
+# PDF出力
+kindle_*.pdf
+*_recovery.pdf
 
 # 一時Pythonスクリプト
 ocr_script.py
