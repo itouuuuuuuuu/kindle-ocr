@@ -9,8 +9,8 @@ end getEnvVar
 
 -- 環境変数から設定値を取得
 property PAGES : (getEnvVar("KINDLE_OCR_PAGES", "200") as integer)
-property KEY_LEFT : (ASCII character (getEnvVar("KINDLE_OCR_KEY_CODE", "28") as integer))
-property CAPTURE_RECT : getEnvVar("KINDLE_OCR_CAPTURE_RECT", "50,100,1500,850")
+property KEY_LEFT : (ASCII character (getEnvVar("KINDLE_OCR_KEY_CODE", "29") as integer))
+property CAPTURE_RECT : getEnvVar("KINDLE_OCR_CAPTURE_RECT", "50,100,1450,850")
 property SCREENSHOT_DELAY : (getEnvVar("KINDLE_OCR_SCREENSHOT_DELAY", "0.3") as real)
 property PAGE_DELAY : (getEnvVar("KINDLE_OCR_PAGE_DELAY", "0.2") as real)
 
@@ -43,14 +43,24 @@ on run
     -- スクリーンショット撮影開始
     set screenshotPaths to captureScreenshotsWithProgress(folderPath, userPages)
 
+    -- スクリーンショット撮影完了後の確認ダイアログ
+    set continueProcessing to confirmOCRProcessing(folderPath, screenshotPaths)
+
+    if not continueProcessing then
+        -- 中断された場合：スクリーンショットは保持して終了
+        log "=== 処理中断（スクリーンショット保持） ==="
+        showMessage("処理を中断しました。" & return & "スクリーンショットは以下に保存されています：" & return & folderPath)
+        return
+    end if
+
     -- OCR処理とアップロード
     if executePythonOCRWithProgress(folderPath, projectRoot) then
-        cleanup(screenshotPaths, folderPath)
+        cleanupScreenshots(screenshotPaths) -- スクリーンショットのみクリーンアップ
         log "=== 全処理完了 ==="
         showMessage("処理が完了しました。OCR結果がGoogle Docsにアップロードされました。")
     else
         log "=== 処理エラー ==="
-        showMessage("エラーが発生しました。エラーログを確認してください。")
+        showMessage("エラーが発生しました。エラーログを確認してください。" & return & "スクリーンショットは保持されています：" & return & folderPath)
     end if
 end run
 
@@ -235,6 +245,40 @@ on captureScreenshotsWithProgress(folderPath, targetPages)
     return screenshotPaths
 end captureScreenshotsWithProgress
 
+-- OCR処理継続確認ダイアログ
+on confirmOCRProcessing(folderPath, screenshotPaths)
+    try
+        -- 実際に撮影されたファイル数を確認
+        set actualCount to 0
+        repeat with screenshotPath in screenshotPaths
+            try
+                do shell script "test -f " & quoted form of screenshotPath
+                set actualCount to actualCount + 1
+            on error
+                -- ファイルが存在しない場合はカウントしない
+            end try
+        end repeat
+
+        -- 確認メッセージ作成
+        set confirmMessage to "スクリーンショットの取得が完了しました。" & return & return & "撮影結果:" & return & "• 撮影枚数: " & actualCount & "枚" & return & "• 保存場所: " & folderPath & return & return & "このままGoogle ドキュメントの作成に進みますか？" & return & return & "※「中断」を選択した場合、スクリーンショットは保持されます。"
+
+        set userChoice to display dialog confirmMessage buttons {"中断", "Google ドキュメント作成"} default button "Google ドキュメント作成"
+
+        if button returned of userChoice is "中断" then
+            log "ユーザーによってOCR処理が中断されました"
+            return false
+        else
+            log "OCR処理を継続します"
+            return true
+        end if
+
+    on error errorMessage
+        log "OCR処理確認でエラー: " & errorMessage
+        -- エラーの場合はデフォルトで継続
+        return true
+    end try
+end confirmOCRProcessing
+
 -- 進捗表示付きPython OCRスクリプト実行
 on executePythonOCRWithProgress(folderPath, projectRoot)
     try
@@ -274,7 +318,7 @@ on executePythonOCRWithProgress(folderPath, projectRoot)
         -- 成功判定
         if finalOutput contains "=== Completed ===" then
             log "OCR処理成功"
-            -- 一時ファイル削除
+            -- 一時ファイル削除（Pythonスクリプトと進捗ログのみ）
             do shell script "rm -f " & quoted form of pythonScriptPath
             do shell script "rm -f " & quoted form of progressLogPath
             return true
@@ -543,8 +587,8 @@ on buildPythonCommand(projectRoot, pythonScriptPath)
     return "cd " & quoted form of projectRoot & " && python3 " & quoted form of pythonScriptPath
 end buildPythonCommand
 
--- クリーンアップ
-on cleanup(screenshotPaths, folderPath)
+-- スクリーンショットファイルのみクリーンアップ
+on cleanupScreenshots(screenshotPaths)
     log "スクリーンショットファイルクリーンアップ開始..."
     set cleanupCount to 0
     repeat with filePath in screenshotPaths
@@ -555,8 +599,8 @@ on cleanup(screenshotPaths, folderPath)
             -- エラーは無視して続行
         end try
     end repeat
-    log "クリーンアップ完了: " & cleanupCount & "ファイル削除"
-end cleanup
+    log "スクリーンショットクリーンアップ完了: " & cleanupCount & "ファイル削除"
+end cleanupScreenshots
 
 -- メッセージ表示（最終結果のみ）
 on showMessage(message)
